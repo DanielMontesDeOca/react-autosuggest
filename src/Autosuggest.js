@@ -110,13 +110,13 @@ export default class Autosuggest extends Component {
     return suggestions !== null && suggestions.length > 0;
   }
 
-  showSuggestions(input) {
+  showSuggestions(input, force) {
     const cacheKey = input.toLowerCase();
 
     this.lastSuggestionsInputValue = input;
 
-    if (!this.props.showWhen(input)) {
-      this.setSuggestionsState(null);
+    if (!this.props.showWhen(input) && !force) {
+      this.setSuggestionsState(null, force);
     } else if (this.props.cache && this.cache[cacheKey]) {
       this.setSuggestionsState(this.cache[cacheKey]);
     } else {
@@ -353,8 +353,12 @@ export default class Autosuggest extends Component {
         break;
 
       case 40: // Down
+        var force = false;
+        if (this.state.value === null || this.state.value.trim().length === 0) {
+          force = true;
+        }
         if (this.state.suggestions === null) {
-          this.showSuggestions(this.state.value);
+          this.showSuggestions(this.state.value, force);
         } else {
           this.focusOnSuggestionUsingKeyboard(
             'down',

@@ -10,7 +10,7 @@ var _slicedToArray = (function () { function sliceIterator(arr, i) { var _arr = 
 
 var _createClass = (function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ('value' in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; })();
 
-var _get = function get(_x, _x2, _x3) { var _again = true; _function: while (_again) { var object = _x, property = _x2, receiver = _x3; desc = parent = getter = undefined; _again = false; if (object === null) object = Function.prototype; var desc = Object.getOwnPropertyDescriptor(object, property); if (desc === undefined) { var parent = Object.getPrototypeOf(object); if (parent === null) { return undefined; } else { _x = parent; _x2 = property; _x3 = receiver; _again = true; continue _function; } } else if ('value' in desc) { return desc.value; } else { var getter = desc.get; if (getter === undefined) { return undefined; } return getter.call(receiver); } } };
+var _get = function get(_x, _x2, _x3) { var _again = true; _function: while (_again) { var object = _x, property = _x2, receiver = _x3; _again = false; if (object === null) object = Function.prototype; var desc = Object.getOwnPropertyDescriptor(object, property); if (desc === undefined) { var parent = Object.getPrototypeOf(object); if (parent === null) { return undefined; } else { _x = parent; _x2 = property; _x3 = receiver; _again = true; desc = parent = undefined; continue _function; } } else if ('value' in desc) { return desc.value; } else { var getter = desc.get; if (getter === undefined) { return undefined; } return getter.call(receiver); } } };
 
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { 'default': obj }; }
 
@@ -102,6 +102,8 @@ var Autosuggest = (function (_Component) {
     // componentWillReceiveProps() when suggestion is clicked.
     this.justPressedUpDown = false; // Helps not to call handleValueChange() in
     // componentWillReceiveProps() when Up or Down is pressed.
+    this.justPressedEsc = false; // Helps not to call handleValueChange() in
+    // componentWillReceiveProps() when ESC is pressed.
     this.onInputChange = this.onInputChange.bind(this);
     this.onInputKeyDown = this.onInputKeyDown.bind(this);
     this.onInputFocus = this.onInputFocus.bind(this);
@@ -114,7 +116,7 @@ var Autosuggest = (function (_Component) {
       if (this.isControlledComponent) {
         var inputValue = (0, _react.findDOMNode)(this.refs.input).value;
 
-        if (nextProps.value !== inputValue && !this.justClickedOnSuggestion && !this.justPressedUpDown) {
+        if (nextProps.value !== inputValue && !this.justClickedOnSuggestion && !this.justPressedUpDown && !this.justPressedEsc) {
           this.handleValueChange(nextProps.value);
         }
       }
@@ -159,15 +161,15 @@ var Autosuggest = (function (_Component) {
     }
   }, {
     key: 'showSuggestions',
-    value: function showSuggestions(input) {
+    value: function showSuggestions(input, force) {
       var _this = this;
 
       var cacheKey = input.toLowerCase();
 
       this.lastSuggestionsInputValue = input;
 
-      if (!this.props.showWhen(input)) {
-        this.setSuggestionsState(null);
+      if (!this.props.showWhen(input) && !force) {
+        this.setSuggestionsState(null, force);
       } else if (this.props.cache && this.cache[cacheKey]) {
         this.setSuggestionsState(this.cache[cacheKey]);
       } else {
@@ -371,6 +373,8 @@ var Autosuggest = (function (_Component) {
   }, {
     key: 'onInputKeyDown',
     value: function onInputKeyDown(event) {
+      var _this3 = this;
+
       var newState = undefined;
 
       switch (event.keyCode) {
@@ -399,12 +403,17 @@ var Autosuggest = (function (_Component) {
           }
 
           this.onSuggestionUnfocused();
+          this.justPressedEsc = true;
 
           if (typeof newState.value === 'string' && newState.value !== this.state.value) {
             this.onChange(newState.value);
           }
 
           this.setState(newState);
+
+          setTimeout(function () {
+            return _this3.justPressedEsc = false;
+          });
           break;
 
         case 38:
@@ -420,8 +429,12 @@ var Autosuggest = (function (_Component) {
 
         case 40:
           // Down
+          var force = false;
+          if (this.state.value === null || this.state.value.trim().length === 0) {
+            force = true;
+          }
           if (this.state.suggestions === null) {
-            this.showSuggestions(this.state.value);
+            this.showSuggestions(this.state.value, force);
           } else {
             this.focusOnSuggestionUsingKeyboard('down', _sectionIterator2['default'].next([this.state.focusedSectionIndex, this.state.focusedSuggestionIndex]));
           }
@@ -481,7 +494,7 @@ var Autosuggest = (function (_Component) {
   }, {
     key: 'onSuggestionMouseDown',
     value: function onSuggestionMouseDown(sectionIndex, suggestionIndex, event) {
-      var _this3 = this;
+      var _this4 = this;
 
       var suggestionValue = this.getSuggestionValue(sectionIndex, suggestionIndex);
 
@@ -502,8 +515,8 @@ var Autosuggest = (function (_Component) {
       }, function () {
         // This code executes after the component is re-rendered
         setTimeout(function () {
-          (0, _react.findDOMNode)(_this3.refs.input).focus();
-          _this3.justClickedOnSuggestion = false;
+          (0, _react.findDOMNode)(_this4.refs.input).focus();
+          _this4.justClickedOnSuggestion = false;
         });
       });
     }
@@ -537,39 +550,39 @@ var Autosuggest = (function (_Component) {
   }, {
     key: 'renderSuggestionsList',
     value: function renderSuggestionsList(suggestions, sectionIndex) {
-      var _this4 = this;
+      var _this5 = this;
 
       return suggestions.map(function (suggestion, suggestionIndex) {
         var classes = (0, _classnames2['default'])({
           'react-autosuggest__suggestion': true,
-          'react-autosuggest__suggestion--focused': sectionIndex === _this4.state.focusedSectionIndex && suggestionIndex === _this4.state.focusedSuggestionIndex
+          'react-autosuggest__suggestion--focused': sectionIndex === _this5.state.focusedSectionIndex && suggestionIndex === _this5.state.focusedSuggestionIndex
         });
-        var suggestionRef = _this4.getSuggestionRef(sectionIndex, suggestionIndex);
+        var suggestionRef = _this5.getSuggestionRef(sectionIndex, suggestionIndex);
 
         return _react2['default'].createElement(
           'li',
-          { id: _this4.getSuggestionId(sectionIndex, suggestionIndex),
+          { id: _this5.getSuggestionId(sectionIndex, suggestionIndex),
             className: classes,
             role: 'option',
             ref: suggestionRef,
             key: suggestionRef,
             onMouseEnter: function () {
-              return _this4.onSuggestionMouseEnter(sectionIndex, suggestionIndex);
+              return _this5.onSuggestionMouseEnter(sectionIndex, suggestionIndex);
             },
             onMouseLeave: function () {
-              return _this4.onSuggestionMouseLeave(sectionIndex, suggestionIndex);
+              return _this5.onSuggestionMouseLeave(sectionIndex, suggestionIndex);
             },
             onMouseDown: function (event) {
-              return _this4.onSuggestionMouseDown(sectionIndex, suggestionIndex, event);
+              return _this5.onSuggestionMouseDown(sectionIndex, suggestionIndex, event);
             } },
-          _this4.renderSuggestionContent(suggestion)
+          _this5.renderSuggestionContent(suggestion)
         );
       });
     }
   }, {
     key: 'renderSuggestions',
     value: function renderSuggestions() {
-      var _this5 = this;
+      var _this6 = this;
 
       if (this.state.suggestions === null) {
         return null;
@@ -597,7 +610,7 @@ var Autosuggest = (function (_Component) {
               _react2['default'].createElement(
                 'ul',
                 { className: 'react-autosuggest__suggestions-section-suggestions' },
-                _this5.renderSuggestionsList(section.suggestions, sectionIndex)
+                _this6.renderSuggestionsList(section.suggestions, sectionIndex)
               )
             );
           })
